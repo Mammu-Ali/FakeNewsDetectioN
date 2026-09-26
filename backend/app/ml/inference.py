@@ -46,21 +46,29 @@ class InferenceService:
     def load_model(self):
         try:
             if not os.path.exists(MODEL_DIR):
-                logger.warning(f"Model directory not found: {MODEL_DIR}")
+                logger.error(
+                    f"Trained model directory not found: {MODEL_DIR}. "
+                    "The trained BERT model files must be present at this path. "
+                    "Run training first or supply the model via a persistent disk/volume."
+                )
                 return
-            
-            # Check if there is config.json
-            if not os.path.exists(os.path.join(MODEL_DIR, "config.json")):
-                logger.warning(f"config.json not found in {MODEL_DIR}. Falling back to cached bert-base-uncased.")
-                model_to_load = "bert-base-uncased"
-            else:
-                model_to_load = MODEL_DIR
 
+            config_path = os.path.join(MODEL_DIR, "config.json")
+            if not os.path.exists(config_path):
+                logger.error(
+                    f"config.json not found in {MODEL_DIR}. "
+                    "The trained BERT model artefacts are missing (config.json, model.safetensors, tokenizer files). "
+                    "Do NOT fall back to bert-base-uncased in production — supply the trained model. "
+                    "To fix: commit the trained model files to the repository or mount a Render Persistent Disk."
+                )
+                return
+
+            model_to_load = MODEL_DIR
             self.tokenizer = AutoTokenizer.from_pretrained(model_to_load)
             self.model = AutoModelForSequenceClassification.from_pretrained(model_to_load, num_labels=2)
             self.model.to(self.device)
             self.model.eval()
-            
+
             # Load metadata if exists
             metadata_path = os.path.join(MODEL_DIR, "model_metadata.json")
             if os.path.exists(metadata_path):
@@ -70,11 +78,11 @@ class InferenceService:
                         self.status = metadata["status"]
             else:
                 self.status = "Active"
-                
-            logger.info("BERT model loaded successfully.")
+
+            logger.info(f"BERT model loaded successfully from {MODEL_DIR}.")
             self.status = "Active"
         except Exception as e:
-            logger.error(f"Error loading model: {e}")
+            logger.error(f"Error loading BERT model: {e}")
             self.model = None
             self.tokenizer = None
 
