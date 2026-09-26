@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: truthguard-backend
+    env: python
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: "https://truthguard.vercel.app"
+      - key: ENVIRONMENT
+        value: "production"
+      - key: MODEL_PATH
+        value: "../models/bert_fake_news/"
+
+  - type: psql
+    name: truthguard-db
+    databaseName: truthguard
+    user: truthguard_user
+    plan: free
