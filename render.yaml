@@ -6,7 +6,9 @@ services:
     startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: truthguard-db
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
@@ -16,8 +18,8 @@ services:
       - key: MODEL_PATH
         value: "../models/bert_fake_news/"
 
-  - type: psql
-    name: truthguard-db
+databases:
+  - name: truthguard-db
     databaseName: truthguard
     user: truthguard_user
     plan: free
