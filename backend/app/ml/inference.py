@@ -20,6 +20,12 @@ from collections import Counter
 
 logger = logging.getLogger(__name__)
 
+# Limit CPU threads to reduce RAM overhead on constrained environments (e.g. Render Free)
+# This does not affect model weights or prediction accuracy.
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+if ENVIRONMENT == "production":
+    torch.set_num_threads(1)
+
 # Model is located at project_root/models/bert_fake_news
 MODEL_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "models", "bert_fake_news"))
 
@@ -31,7 +37,10 @@ class InferenceService:
         self.model_name = "BERT Fake News Classifier"
         self.model_version = "1.0.0"
         self.status = "not_trained"
+        # Always use CPU — CUDA is not available on Render Free and adds zero benefit.
+        # On a GPU machine, cuda will still be selected automatically via is_available().
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        logger.info(f"InferenceService using device: {self.device}")
         self.load_model()
         
     def load_model(self):
