@@ -45,7 +45,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS Configuration
+# CORS Configuration - explicitly allowed origins only (no open regex on shared cloud domains)
 configured_origins = [
     settings.FRONTEND_URL.rstrip("/"),
     "http://localhost:5173",
@@ -58,7 +58,6 @@ unique_origins = list(dict.fromkeys([o for o in configured_origins if o]))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=unique_origins,
-    allow_origin_regex=r"https:\/\/.*\.onrender\.com|https:\/\/.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -149,3 +149,41 @@ def test_history_authenticated_user_access(client, test_db):
     data = res.json()
     assert data["total"] == 1
     assert data["items"][0]["text"] == "My own article"
+
+
+def test_password_length_validation(client):
+    # Too short (< 8 chars)
+    short_res = client.post("/api/auth/register", json={
+        "name": "Short Pass",
+        "email": "short@example.com",
+        "password": "short"
+    })
+    assert short_res.status_code == 422
+
+    # Too long (> 72 chars, bcrypt DoS prevention)
+    long_res = client.post("/api/auth/register", json={
+        "name": "Long Pass",
+        "email": "long@example.com",
+        "password": "A" * 73
+    })
+    assert long_res.status_code == 422
+
+
+def test_production_jwt_secret_validation():
+    from app.core.config import Settings
+    import pydantic
+
+    # When ENVIRONMENT is production, insecure default secret must be rejected
+    with pytest.raises(pydantic.ValidationError):
+        Settings(
+            ENVIRONMENT="production",
+            JWT_SECRET="supersecretkey_change_me_in_production"
+        )
+
+    # Valid secret in production passes
+    valid_settings = Settings(
+        ENVIRONMENT="production",
+        JWT_SECRET="this_is_a_very_secure_random_key_that_is_long_enough_12345"
+    )
+    assert valid_settings.ENVIRONMENT == "production"
+

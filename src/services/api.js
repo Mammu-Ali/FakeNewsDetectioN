@@ -23,6 +23,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Automatically evict expired or invalidated tokens to prevent UI desync
+    if (error.response?.status === 401) {
+      localStorage.removeItem('truthguard_token');
+      localStorage.removeItem('truthguard_user');
+      const path = window.location.pathname;
+      if (!path.includes('/login') && !path.includes('/register')) {
+        window.location.href = '/login';
+      }
+    }
     const msg = error.response?.data?.detail || error.message || 'An error occurred';
     // Surface the message clearly for callers
     error.userMessage = msg;

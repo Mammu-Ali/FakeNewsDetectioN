@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { checkHealth } from '../services/api';
 import { 
   Home, 
   Search, 
@@ -134,22 +136,15 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   );
 }
 
-// Separate component to handle the async check
-import { useState, useEffect } from 'react';
-import { checkHealth } from '../services/api';
-
 function BackendStatus() {
-  const [status, setStatus] = useState('Checking...');
   const [isOnline, setIsOnline] = useState(false);
 
   useEffect(() => {
     const check = async () => {
       try {
         await checkHealth();
-        setStatus('Online');
         setIsOnline(true);
-      } catch (err) {
-        setStatus('Offline');
+      } catch {
         setIsOnline(false);
       }
     };

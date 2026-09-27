@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getPredictions, deletePrediction, clearPredictions } from '../services/historyService';
 import HistoryStats from '../components/history/HistoryStats';
@@ -33,7 +33,12 @@ export default function History() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getPredictions(user.id);
+      const params = {};
+      if (filter && filter !== 'ALL') params.filter = filter;
+      if (searchQuery && searchQuery.trim()) params.search = searchQuery.trim();
+      if (sort) params.sort = sort.toLowerCase();
+
+      const data = await getPredictions(user.id, params);
       setHistory(data);
     } catch (err) {
       setError(err.message || 'Failed to load history.');
@@ -43,47 +48,15 @@ export default function History() {
   };
 
   useEffect(() => {
-    fetchHistory();
+    const timer = setTimeout(() => {
+      fetchHistory();
+    }, 250);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, filter, sort, searchQuery]);
 
-  // Derived state for filtered and sorted history
-  const filteredHistory = useMemo(() => {
-    let result = [...history];
-
-    // Search
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-    // Search (text and prediction only — keywords not in history API)
-      result = result.filter(item =>
-        item.text?.toLowerCase().includes(q) ||
-        item.prediction?.toLowerCase().includes(q)
-      );
-    }
-
-    // Filter
-    if (filter !== 'ALL') {
-      result = result.filter(item => item.prediction === filter);
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      switch (sort) {
-        case 'NEWEST':
-          return new Date(b.createdAt) - new Date(a.createdAt);
-        case 'OLDEST':
-          return new Date(a.createdAt) - new Date(b.createdAt);
-        case 'HIGHEST_CONF':
-          return b.confidence - a.confidence;
-        case 'LOWEST_CONF':
-          return a.confidence - b.confidence;
-        default:
-          return 0;
-      }
-    });
-
-    return result;
-  }, [history, searchQuery, filter, sort]);
+  // Derived state directly from server-side query results
+  const filteredHistory = history;
 
   // Handlers
   const handleDelete = async () => {

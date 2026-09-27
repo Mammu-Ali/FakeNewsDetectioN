@@ -43,25 +43,19 @@ async def get_history(
     if user_id and user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Cannot access prediction history of another user")
 
-    predictions = crud.get_predictions_by_user(db, user_id=current_user.id, skip=skip, limit=limit)
+    predictions, total = crud.get_predictions_by_user(
+        db,
+        user_id=current_user.id,
+        skip=skip,
+        limit=limit,
+        filter_label=filter,
+        search=search,
+        sort=sort or "newest",
+        include_total=True,
+    )
     items = [_format_prediction(p) for p in predictions]
 
-    # Filter by prediction label
-    if filter and filter.upper() in ("REAL", "FAKE"):
-        items = [i for i in items if i["prediction"] == filter.upper()]
-
-    # Text search
-    if search:
-        search_lower = search.lower()
-        items = [i for i in items if search_lower in i["text"].lower()]
-
-    # Sort
-    if sort == "oldest":
-        items = sorted(items, key=lambda x: x["createdAt"] or "")
-    else:
-        items = sorted(items, key=lambda x: x["createdAt"] or "", reverse=True)
-
-    return {"items": items, "total": len(items)}
+    return {"items": items, "total": total}
 
 
 @router.get("/{prediction_id}")

@@ -1,6 +1,9 @@
+import { useNavigate } from 'react-router-dom';
 import { FileText, Sparkles } from 'lucide-react';
 
 export default function Home() {
+  const navigate = useNavigate();
+
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-5">
@@ -24,6 +27,7 @@ export default function Home() {
           <div className="mt-8">
             <button
               type="button"
+              onClick={() => navigate('/predict')}
               className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-colors"
             >
               <Sparkles className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />

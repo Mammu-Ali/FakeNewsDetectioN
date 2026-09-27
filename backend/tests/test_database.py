@@ -245,3 +245,41 @@ def test_create_evaluation(db):
     assert evaluation.accuracy == 0.985
     assert evaluation.model_id == ml_model.id
     assert evaluation.dataset_id == dataset.id
+
+
+def test_predictions_sql_filtering_and_search(db):
+    user = crud.create_user(db, schemas.UserCreate(
+        name="Query User", email="query@example.com", password="passQuery123"
+    ))
+    crud.create_prediction(db, schemas.PredictionCreate(
+        user_id=user.id, text="Breaking: Secret discovery found in space", prediction="FAKE",
+        confidence=0.91, model_name="BERT", model_version="1.0.0", inference_time_ms=100
+    ))
+    crud.create_prediction(db, schemas.PredictionCreate(
+        user_id=user.id, text="Verified: Climate changes reported by scientists", prediction="REAL",
+        confidence=0.82, model_name="BERT", model_version="1.0.0", inference_time_ms=110
+    ))
+    crud.create_prediction(db, schemas.PredictionCreate(
+        user_id=user.id, text="Economy grows according to recent reports", prediction="REAL",
+        confidence=0.95, model_name="BERT", model_version="1.0.0", inference_time_ms=90
+    ))
+
+    # Test filtering by label
+    real_items, total_real = crud.get_predictions_by_user(db, user.id, filter_label="REAL", include_total=True)
+    assert total_real == 2
+    assert len(real_items) == 2
+    assert all(p.prediction == "REAL" for p in real_items)
+
+    fake_items, total_fake = crud.get_predictions_by_user(db, user.id, filter_label="FAKE", include_total=True)
+    assert total_fake == 1
+    assert fake_items[0].prediction == "FAKE"
+
+    # Test search (case-insensitive)
+    space_items, total_space = crud.get_predictions_by_user(db, user.id, search="secret", include_total=True)
+    assert total_space == 1
+    assert "space" in space_items[0].text.lower()
+
+    # Test sorting by confidence descending
+    sorted_items, _ = crud.get_predictions_by_user(db, user.id, sort="highest_conf", include_total=True)
+    assert sorted_items[0].confidence >= sorted_items[1].confidence >= sorted_items[2].confidence
+

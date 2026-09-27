@@ -67,3 +67,25 @@ def test_valid_real_article(mocker):
     data = response.json()
     assert data["prediction"] == "REAL"
     assert data["confidence"] == 0.88
+
+
+def test_cors_rejects_arbitrary_origins():
+    # Attempting preflight from an unauthorized third-party origin (e.g. attacker on vercel)
+    headers = {
+        "Origin": "https://malicious-attacker.vercel.app",
+        "Access-Control-Request-Method": "POST",
+    }
+    response = client.options("/api/predict", headers=headers)
+    # Origin should not be reflected in Access-Control-Allow-Origin
+    assert response.headers.get("access-control-allow-origin") != "https://malicious-attacker.vercel.app"
+
+
+def test_cors_allows_configured_origin():
+    # Attempting preflight from the configured frontend origin
+    headers = {
+        "Origin": "http://localhost:5173",
+        "Access-Control-Request-Method": "POST",
+    }
+    response = client.options("/api/predict", headers=headers)
+    assert response.headers.get("access-control-allow-origin") == "http://localhost:5173"
+

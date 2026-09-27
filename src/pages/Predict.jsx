@@ -1,15 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText } from 'lucide-react';
 import NewsInputCard from '../components/NewsInputCard';
 import PredictionResult from '../components/PredictionResult';
 import { analyzeNews } from '../services/predictionService';
+import { checkHealth } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function Predict() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [modelStatus, setModelStatus] = useState({ online: true, name: 'BERT (Hugging Face)' });
   const { user } = useAuth();
+
+  useEffect(() => {
+    checkHealth()
+      .then((data) => {
+        setModelStatus({
+          online: data?.status === 'healthy',
+          name: data?.model_name || 'BERT (Hugging Face)',
+        });
+      })
+      .catch(() => {
+        setModelStatus({ online: false, name: 'BERT (Hugging Face)' });
+      });
+  }, []);
 
   const handleAnalyze = async (text) => {
     setLoading(true);
@@ -46,12 +61,16 @@ export default function Predict() {
         <div className="flex flex-col items-start sm:items-end bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+              {modelStatus.online && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              )}
+              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${modelStatus.online ? 'bg-green-500' : 'bg-amber-500'}`}></span>
             </span>
-            <span className="text-sm font-semibold text-slate-700">Model Online</span>
+            <span className="text-sm font-semibold text-slate-700">
+              {modelStatus.online ? 'Model Online' : 'Model Standby'}
+            </span>
           </div>
-          <span className="text-xs text-slate-500 mt-0.5">BERT (Hugging Face)</span>
+          <span className="text-xs text-slate-500 mt-0.5">{modelStatus.name}</span>
         </div>
       </div>
 

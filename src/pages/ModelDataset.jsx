@@ -73,7 +73,7 @@ export default function ModelDataset() {
           You do not have permission to view this page. Please contact an administrator.
         </p>
         <button
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate('/')}
           className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors"
         >
           <LayoutDashboard size={16} />

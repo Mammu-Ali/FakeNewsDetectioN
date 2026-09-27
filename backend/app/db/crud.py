@@ -36,8 +36,42 @@ def create_prediction(db: Session, prediction: schemas.PredictionCreate):
     db.refresh(db_prediction)
     return db_prediction
 
-def get_predictions_by_user(db: Session, user_id: str, skip: int = 0, limit: int = 100):
-    return db.query(models.Prediction).filter(models.Prediction.user_id == user_id).order_by(models.Prediction.created_at.desc()).offset(skip).limit(limit).all()
+from typing import Optional, List, Tuple
+
+def get_predictions_by_user(
+    db: Session,
+    user_id: str,
+    skip: int = 0,
+    limit: int = 100,
+    filter_label: Optional[str] = None,
+    search: Optional[str] = None,
+    sort: str = "newest",
+    include_total: bool = False,
+):
+    query = db.query(models.Prediction).filter(models.Prediction.user_id == user_id)
+
+    if filter_label and filter_label.upper() in ("REAL", "FAKE"):
+        query = query.filter(models.Prediction.prediction == filter_label.upper())
+
+    if search and search.strip():
+        query = query.filter(models.Prediction.text.ilike(f"%{search.strip()}%"))
+
+    total = query.count() if include_total else 0
+
+    sort_normalized = sort.lower() if sort else "newest"
+    if sort_normalized == "oldest":
+        query = query.order_by(models.Prediction.created_at.asc())
+    elif sort_normalized in ("highest_conf", "highest"):
+        query = query.order_by(models.Prediction.confidence.desc())
+    elif sort_normalized in ("lowest_conf", "lowest"):
+        query = query.order_by(models.Prediction.confidence.asc())
+    else:
+        query = query.order_by(models.Prediction.created_at.desc())
+
+    items = query.offset(skip).limit(limit).all()
+    if include_total:
+        return items, total
+    return items
 
 def get_prediction(db: Session, prediction_id: str):
     return db.query(models.Prediction).filter(models.Prediction.id == prediction_id).first()

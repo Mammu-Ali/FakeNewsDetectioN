@@ -2,7 +2,6 @@ import { Activity } from 'lucide-react';
 
 export default function ModelMetrics({ metrics, status }) {
   const isEvaluated = status === 'Evaluation Complete';
-  const isTrained = status === 'Trained' || isEvaluated;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">

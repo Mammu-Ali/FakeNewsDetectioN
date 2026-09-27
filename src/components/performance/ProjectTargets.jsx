@@ -5,6 +5,23 @@ import { Target, TrendingUp, TrendingDown } from 'lucide-react';
  * targets: { accuracy_target, f1_target }   (fractions, e.g. 0.90)
  * metrics: { accuracy, f1 }                 (fractions from evaluation)
  */
+const StatusBadge = ({ actual, target }) => {
+  if (actual === null) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-500">
+        Pending
+      </span>
+    );
+  }
+  const above = actual >= target;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium ${above ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+      {above ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+      {above ? 'Above Target' : 'Below Target'}
+    </span>
+  );
+};
+
 export default function ProjectTargets({ targets, metrics }) {
   if (!targets) return null;
 
@@ -14,23 +31,6 @@ export default function ProjectTargets({ targets, metrics }) {
   const f1Actual  = metrics?.f1       ?? null;
 
   const pct = (v) => v !== null ? `${(v * 100).toFixed(2)}%` : null;
-
-  const StatusBadge = ({ actual, target }) => {
-    if (actual === null) {
-      return (
-        <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-500">
-          Pending
-        </span>
-      );
-    }
-    const above = actual >= target;
-    return (
-      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium ${above ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-        {above ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-        {above ? 'Above Target' : 'Below Target'}
-      </span>
-    );
-  };
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">

@@ -1,8 +1,6 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   getPerformance, 
-  getConfusionMatrix, 
-  getTrainingHistory, 
   getModelVersions 
 } from '../services/performanceService';
 
@@ -31,17 +29,14 @@ export default function Performance() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [perfData, confData, trainData, versData] = await Promise.all([
+        const [perfData, versData] = await Promise.all([
           getPerformance(),
-          getConfusionMatrix(),
-          getTrainingHistory(),
           getModelVersions()
         ]);
         setData(perfData);
-        // Prefer separate endpoint; fall back to embedded confusion_matrix
-        setConfusionMatrix(confData || perfData?.confusion_matrix || null);
-        setTrainingHistory(trainData);
-        setVersions(versData);
+        setConfusionMatrix(perfData?.confusion_matrix || null);
+        setTrainingHistory(perfData?.training_history || []);
+        setVersions(versData?.versions || (Array.isArray(versData) ? versData : []));
       } catch (error) {
         console.error("Failed to load performance data:", error);
       } finally {

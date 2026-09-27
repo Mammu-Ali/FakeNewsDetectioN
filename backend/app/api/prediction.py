@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.schemas.prediction import PredictionRequest, PredictionResponse
@@ -22,7 +23,9 @@ async def predict(
         if not request.text or not request.text.strip():
             raise HTTPException(status_code=400, detail="Text cannot be empty")
         
-        result = inference_service.predict(request.text)
+        # Offload CPU-bound PyTorch BERT inference to worker threadpool
+        # Prevents blocking the main asyncio event loop
+        result = await run_in_threadpool(inference_service.predict, request.text)
         
         # Save to database only if authenticated via JWT (prevents IDOR / user spoofing)
         # Never trust an unverified user_id from the client payload
@@ -30,18 +33,16 @@ async def predict(
         
         if effective_user_id:
             try:
-                crud.create_prediction(
-                    db,
-                    schemas.PredictionCreate(
-                        text=request.text,
-                        prediction=result.get("prediction"),
-                        confidence=result.get("confidence"),
-                        model_name=result.get("model_name"),
-                        model_version=result.get("model_version"),
-                        inference_time_ms=result.get("inference_time_ms"),
-                        user_id=effective_user_id
-                    )
+                prediction_payload = schemas.PredictionCreate(
+                    text=request.text,
+                    prediction=result.get("prediction"),
+                    confidence=result.get("confidence"),
+                    model_name=result.get("model_name"),
+                    model_version=result.get("model_version"),
+                    inference_time_ms=result.get("inference_time_ms"),
+                    user_id=effective_user_id
                 )
+                await run_in_threadpool(crud.create_prediction, db, prediction_payload)
             except Exception as db_err:
                 logger.error(f"Failed to save prediction to DB: {db_err}")
                 # We still return the prediction even if DB save fails

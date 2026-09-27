@@ -8,8 +8,10 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+from app.core.config import settings
+
 # Fallback to SQLite for development/testing when PostgreSQL is unavailable
-SQLALCHEMY_DATABASE_URL = os.getenv(
+SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL or os.getenv(
     "DATABASE_URL",
     "sqlite:///./truthguard_dev.db"
 )
@@ -33,13 +35,19 @@ elif SQLALCHEMY_DATABASE_URL.startswith("postgresql://") and not SQLALCHEMY_DATA
     except ImportError:
         pass
 
-# SQLite needs special connect_args
+# Configure connection pooling and pre-ping to withstand cloud database idle timeouts
 connect_args = {}
+engine_kwargs = {"pool_pre_ping": True}
+
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
     logger.warning("Using SQLite fallback. Configure DATABASE_URL in backend/.env to use PostgreSQL.")
+else:
+    engine_kwargs["pool_recycle"] = 1800
+    engine_kwargs["pool_size"] = 10
+    engine_kwargs["max_overflow"] = 20
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args=connect_args)
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args=connect_args, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

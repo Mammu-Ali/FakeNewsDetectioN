@@ -11,6 +11,7 @@ if 'torch._strobelight' not in sys.modules:
     m_comp.StrobelightCompileTimeProfiler = type('StrobelightCompileTimeProfiler', (), {})
 
 import json
+import re
 import time
 import torch
 import logging
@@ -95,11 +96,21 @@ class InferenceService:
 
         start_time = time.time()
         
-        # Simple lightweight keyword extraction
-        words = [w for w in text.split() if len(w) > 5]
-        keywords = [word for word, count in Counter(words).most_common(3)]
+        # Salient keyword extraction: normalize tokens and filter common non-informative words
+        clean_tokens = [
+            re.sub(r'[^a-zA-Z]', '', w).lower()
+            for w in text.split()
+        ]
+        stopwords = {
+            "about", "above", "after", "again", "against", "because", "before", "being",
+            "below", "between", "during", "further", "having", "itself", "other", "should",
+            "their", "theirs", "themselves", "there", "these", "those", "through", "under",
+            "until", "while", "which", "where", "would", "could", "first", "second"
+        }
+        salient_words = [w for w in clean_tokens if len(w) > 4 and w not in stopwords]
+        keywords = [word for word, _ in Counter(salient_words).most_common(3)]
         if not keywords:
-            keywords = []
+            keywords = [w for w, _ in Counter([w for w in clean_tokens if len(w) > 3]).most_common(3)]
             
         # Tokenize
         inputs = self.tokenizer(
@@ -128,8 +139,8 @@ class InferenceService:
             "prediction": prediction,
             "confidence": confidence,
             "keywords": keywords,
-            "explanation": "Predicted using trained model confidence.",
-            "explanation_status": "basic",
+            "explanation": f"Classified as {prediction} ({confidence*100:.1f}% confidence) based on fine-tuned BERT transformer representations.",
+            "explanation_status": "contextual",
             "model_name": self.model_name,
             "model_version": self.model_version,
             "demo": False,
