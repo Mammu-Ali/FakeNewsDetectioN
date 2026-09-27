@@ -3,7 +3,7 @@ from typing import List, Optional
 
 
 class PredictionRequest(BaseModel):
-    text: str = Field(..., min_length=1, max_length=50000, description="The news article text to analyze")
+    text: str = Field(..., min_length=1, max_length=5000, description="The news article text to analyze")
     user_id: Optional[str] = None
 
     @field_validator("text")

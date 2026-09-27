@@ -1,7 +1,6 @@
 import os
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
-from sqlalchemy.exc import OperationalError
 from dotenv import load_dotenv
 import logging
 
@@ -18,6 +17,21 @@ SQLALCHEMY_DATABASE_URL = os.getenv(
 # Strip surrounding quotes that may be present in .env values
 if SQLALCHEMY_DATABASE_URL.startswith('"') and SQLALCHEMY_DATABASE_URL.endswith('"'):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL[1:-1]
+
+# Render supplies connection strings starting with 'postgres://' which SQLAlchemy does not support directly.
+# Translate 'postgres://' to 'postgresql+psycopg://' (if psycopg 3 is installed) or 'postgresql://'.
+if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
+    try:
+        import psycopg  # noqa
+        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+    except ImportError:
+        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
+elif SQLALCHEMY_DATABASE_URL.startswith("postgresql://") and not SQLALCHEMY_DATABASE_URL.startswith("postgresql+"):
+    try:
+        import psycopg  # noqa
+        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+    except ImportError:
+        pass
 
 # SQLite needs special connect_args
 connect_args = {}

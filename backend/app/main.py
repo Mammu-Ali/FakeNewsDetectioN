@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
@@ -18,36 +19,45 @@ logger = logging.getLogger(__name__)
 
 
 def _init_database():
-    """Create DB tables on startup. Errors are logged but don't prevent server startup."""
+    """Create DB tables on startup. Fails fast in production if DB is unreachable."""
     try:
         from app.db.database import Base, engine
         from app.db import models  # noqa – ensure models are imported before create_all
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables ensured/created successfully.")
     except Exception as exc:
+        if settings.ENVIRONMENT == "production":
+            logger.critical(f"FATAL: Database initialisation failed in production: {exc}")
+            raise RuntimeError(f"Database initialisation failed: {exc}") from exc
         logger.warning(f"Database initialisation skipped (PostgreSQL not available?): {exc}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _init_database()
+    yield
 
 
 app = FastAPI(
     title=settings.APP_NAME,
     description="AI-powered fake news detection backend.",
     version=settings.APP_VERSION,
+    lifespan=lifespan,
 )
 
-# Register startup hook
-@app.on_event("startup")
-async def startup_event():
-    _init_database()
+# CORS Configuration
+configured_origins = [
+    settings.FRONTEND_URL.rstrip("/"),
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://truthguard.vercel.app",
+]
+unique_origins = list(dict.fromkeys([o for o in configured_origins if o]))
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        settings.FRONTEND_URL, 
-        "http://localhost:5173", 
-        "http://127.0.0.1:5173",
-        "https://truthguard.vercel.app"
-    ],
+    allow_origins=unique_origins,
+    allow_origin_regex=r"https:\/\/.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -66,6 +76,7 @@ app.include_router(dataset.router, prefix="/api/datasets", tags=["Dataset"])
 app.include_router(model.router, prefix="/api/models", tags=["Model"])
 app.include_router(performance.router, prefix="/api/performance", tags=["Performance"])
 
+
 @app.get("/", tags=["Health"])
 async def root():
     return {
@@ -73,6 +84,7 @@ async def root():
         "version": settings.APP_VERSION,
         "status": "online"
     }
+
 
 @app.get("/api/health", tags=["Health"])
 async def health_check():

@@ -33,7 +33,10 @@ backend/.env.*
 
 # Python
 backend/venv/
-backend/__pycache__/
-backend/*.pyc
+__pycache__/
+**/__pycache__/
+*.pyc
+**/*.pyc
 backend/.pytest_cache/
+.pytest_cache/
 backend/alembic.ini

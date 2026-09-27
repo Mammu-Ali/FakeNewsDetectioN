@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
+from typing import Optional
 from app.schemas.prediction import PredictionRequest, PredictionResponse
 from app.ml.inference import inference_service
-from app.db import crud, schemas
+from app.db import crud, schemas, models
 from app.db.database import get_db
+from app.dependencies import get_current_user_optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,15 +13,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("", response_model=PredictionResponse)
-async def predict(request: PredictionRequest, db: Session = Depends(get_db)):
+async def predict(
+    request: PredictionRequest,
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     try:
         if not request.text or not request.text.strip():
             raise HTTPException(status_code=400, detail="Text cannot be empty")
         
         result = inference_service.predict(request.text)
         
-        # Save to PostgreSQL
-        if request.user_id:
+        # Save to database only if authenticated via JWT (prevents IDOR / user spoofing)
+        # Never trust an unverified user_id from the client payload
+        effective_user_id = current_user.id if current_user else None
+        
+        if effective_user_id:
             try:
                 crud.create_prediction(
                     db,
@@ -30,7 +39,7 @@ async def predict(request: PredictionRequest, db: Session = Depends(get_db)):
                         model_name=result.get("model_name"),
                         model_version=result.get("model_version"),
                         inference_time_ms=result.get("inference_time_ms"),
-                        user_id=request.user_id
+                        user_id=effective_user_id
                     )
                 )
             except Exception as db_err:

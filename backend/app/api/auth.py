@@ -12,12 +12,13 @@ router = APIRouter()
 
 def _create_token(user_id: str, email: str, role: str) -> str:
     """Create a signed JWT token valid for 7 days."""
+    now = datetime.datetime.now(datetime.timezone.utc)
     payload = {
         "sub": user_id,
         "email": email,
         "role": role,
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=7),
-        "iat": datetime.datetime.utcnow(),
+        "exp": now + datetime.timedelta(days=7),
+        "iat": now,
     }
     return jwt.encode(payload, settings.JWT_SECRET, algorithm="HS256")
 

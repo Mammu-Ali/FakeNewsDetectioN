@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 from typing import Optional
-from app.db import crud, schemas
+from app.db import crud, schemas, models
 from app.db.database import get_db
+from app.dependencies import get_current_user
 
 router = APIRouter()
 
@@ -26,19 +27,23 @@ def _format_prediction(pred) -> dict:
 
 @router.get("")
 async def get_history(
-    user_id: Optional[str] = Query(None, description="Filter by user ID"),
+    user_id: Optional[str] = Query(None, description="Optional user ID filter (must match authenticated user)"),
     filter: Optional[str] = Query(None, description="Filter by REAL or FAKE"),
     search: Optional[str] = Query(None, description="Search in text"),
     sort: Optional[str] = Query("newest", description="Sort by newest or oldest"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get prediction history. user_id is required to enforce user isolation."""
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id query parameter is required")
+    """
+    Get prediction history for the authenticated user.
+    Prevents IDOR by strictly enforcing JWT ownership.
+    """
+    if user_id and user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Cannot access prediction history of another user")
 
-    predictions = crud.get_predictions_by_user(db, user_id=user_id, skip=skip, limit=limit)
+    predictions = crud.get_predictions_by_user(db, user_id=current_user.id, skip=skip, limit=limit)
     items = [_format_prediction(p) for p in predictions]
 
     # Filter by prediction label
@@ -62,19 +67,20 @@ async def get_history(
 @router.get("/{prediction_id}")
 async def get_history_item(
     prediction_id: str,
-    user_id: Optional[str] = Query(None, description="User ID for ownership check"),
+    user_id: Optional[str] = Query(None, description="Optional user ID check"),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get a specific prediction. Enforces user isolation."""
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id query parameter is required")
+    """Get a specific prediction. Enforces JWT user ownership."""
+    if user_id and user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     pred = crud.get_prediction(db, prediction_id)
     if not pred:
         raise HTTPException(status_code=404, detail="Prediction not found")
 
     # Enforce user isolation
-    if pred.user_id != user_id:
+    if pred.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
     return _format_prediction(pred)
@@ -83,18 +89,19 @@ async def get_history_item(
 @router.delete("/{prediction_id}")
 async def delete_history_item(
     prediction_id: str,
-    user_id: Optional[str] = Query(None, description="User ID for ownership check"),
+    user_id: Optional[str] = Query(None, description="Optional user ID check"),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a specific prediction. Enforces user isolation."""
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id query parameter is required")
+    """Delete a specific prediction. Enforces JWT user ownership."""
+    if user_id and user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     pred = crud.get_prediction(db, prediction_id)
     if not pred:
         raise HTTPException(status_code=404, detail="Prediction not found")
 
-    if pred.user_id != user_id:
+    if pred.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
     crud.delete_prediction(db, prediction_id)
@@ -103,12 +110,13 @@ async def delete_history_item(
 
 @router.delete("")
 async def clear_history(
-    user_id: Optional[str] = Query(None, description="User ID"),
+    user_id: Optional[str] = Query(None, description="Optional user ID"),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete all predictions for the current user."""
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id query parameter is required")
+    """Delete all predictions for the authenticated user."""
+    if user_id and user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Cannot clear prediction history of another user")
 
-    crud.delete_all_user_predictions(db, user_id)
+    crud.delete_all_user_predictions(db, current_user.id)
     return {"message": "Prediction history cleared"}

@@ -26,10 +26,23 @@ from app.db.models import User, Prediction, MLModel, Dataset, Evaluation
 target_metadata = Base.metadata
 
 # Set database URL dynamically from environment
-config.set_main_option(
-    "sqlalchemy.url",
-    os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:postgres@localhost:5432/truthguard")
-)
+db_url = os.getenv("DATABASE_URL", "postgresql+psycopg://postgres:postgres@localhost:5432/truthguard")
+if db_url.startswith('"') and db_url.endswith('"'):
+    db_url = db_url[1:-1]
+if db_url.startswith("postgres://"):
+    try:
+        import psycopg  # noqa
+        db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
+    except ImportError:
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+"):
+    try:
+        import psycopg  # noqa
+        db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    except ImportError:
+        pass
+
+config.set_main_option("sqlalchemy.url", db_url)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
