@@ -27,7 +27,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        value: "https://truthguard.vercel.app"
+        value: "https://fakenewsdetection-1-4iyd.onrender.com"
       - key: ENVIRONMENT
         value: "production"
       - key: MODEL_PATH
