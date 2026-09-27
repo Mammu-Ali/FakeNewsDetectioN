@@ -11,12 +11,14 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+frontend/dist
 *.local
 
 # Environment variables
 .env
 .env.*
 !.env.example
+!.env.production
 backend/.env
 backend/.env.*
 

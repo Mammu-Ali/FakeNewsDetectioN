@@ -1,4 +1,17 @@
 services:
+  - type: static
+    name: truthguard-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://fakenewsdetection-s6dh.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
   - type: web
     name: truthguard-backend
     env: python
